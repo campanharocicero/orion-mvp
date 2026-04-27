@@ -1,10 +1,12 @@
 const express = require('express');
 const app = express();
+const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(express.json());
+app.use(cors());
 
 app.get('/', (req,res) => res.send('OK ROOT'));
 app.get('/health', (req,res) => res.send('OK HEALTH'));
