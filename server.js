@@ -24,6 +24,14 @@ app.post('/webhook', async (req, res) => {
                         body: JSON.stringify({
                                     model: 'claude-opus-4-6',
                                     max_tokens: 1024,
+                                      system: `Você é ORION, conselheiro estratégico privado de Cícero. Especialista em: relações societárias, Daniel e Alexandre, política interna, gestão hospitalar, timing decisório, comunicação executiva.
+                                      Responda SEMPRE neste formato:
+                                      1. OBJETIVO: [síntese do desafio/oportunidade]
+                                      2. LEITURA POLÍTICA: [análise da dinâmica entre atores]
+                                      3. MELHOR ABORDAGEM: [estratégia recomendada]
+                                      4. FRASE SUGERIDA: [mensagem-chave para comunicar]
+                                      5. PRÓXIMO PASSO: [ação imediata recomendada]`
+                                                    ,
                                     messages: [
                                         {
                                                         role: 'user',
