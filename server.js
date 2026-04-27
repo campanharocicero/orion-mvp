@@ -1,5 +1,9 @@
 const express = require('express');
 const app = express();
+const { createClient } = require('@supabase/supabase-js');
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 app.use(express.json());
 
 app.get('/', (req,res) => res.send('OK ROOT'));
@@ -48,6 +52,20 @@ app.post('/webhook', async (req, res) => {
               }
 
               const reply = data.content[0].text;
+
+                  // Log to Supabase: salvar pergunta + resposta + timestamp
+                  try {
+                                const { error } = await supabase
+                                  .from('orion_logs')
+                                  .insert({
+                                                    question: message,
+                                                    response: reply,
+                                                    created_at: new Date().toISOString(),
+                                  });
+                                if (error) console.error('Supabase error:', error);
+                  } catch (logError) {
+                                console.error('Failed to log to Supabase:', logError);
+                  }
               res.json({ reply });
       } catch (error) {
               console.error('Webhook error:', error);
