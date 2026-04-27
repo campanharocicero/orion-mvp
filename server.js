@@ -7,9 +7,7 @@ app.use(express.json());
 // Log all requests
 app.use((req,res,next)=>{ console.log(req.method + ' ' + req.url); next(); });
 
-app.get('/', (req, res) => {
-      res.json({status: 'ok', message: 'ORION Backend'});
-});
+app.get('/', (req, res) => { console.log('GET / reached'); res.status(200).send('ORION ONLINE'); });
 
 app.get('/health', (req, res) => {
   res.status(200).send('OK');
