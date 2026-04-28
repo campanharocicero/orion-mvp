@@ -392,13 +392,16 @@
                 const data = await response.json();
 
                 // Adicionar resposta do ORION
-                const responseMessage = data.response || data.message || 'Resposta processada';
+                const responseMessage = data.reply || data.response || data.message || 'Resposta do ORION processada';
                 addMessage(responseMessage, 'assistant');
 
             } catch (error) {
                 removeLoadingIndicator();
                 console.error('Erro:', error);
-                addMessage(`Erro ao conectar com ORION: ${error.message}`, 'error');
+                const errorMsg = error.message.includes('Failed to fetch')
+                    ? 'Erro de conexão. Verifique sua internet e tente novamente.'
+                    : `Erro ao processar: ${error.message}`;
+                addMessage(errorMsg, 'error');
             } finally {
                 sendButton.disabled = false;
                 messageInput.focus();
