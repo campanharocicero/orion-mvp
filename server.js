@@ -1,89 +1,129 @@
-const express = require('express');
+/**
+ * ORION Backend - Node.js + Express
+ * Sistema Prompt Premium para Conselheiro Executivo
+ */
+
+import express from 'express';
+import Anthropic from '@anthropic-ai/sdk';
+import cors from 'cors';
+
 const app = express();
-const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-app.use(express.json());
+
 app.use(cors());
+app.use(express.json());
+app.use(express.static('.'));
 
-app.get('/', (req,res) => res.send('OK ROOT'));
-app.get('/health', (req,res) => res.send('OK HEALTH'));
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
-// Webhook endpoint para receber mensagens e responder com Claude API
+const ORION_SYSTEM = `Você é ORION, assistente de decisões estratégicas para executivos C-suite.
+
+INSTRUÇÃO CRÍTICA: Sempre estruture a resposta assim:
+
+1️⃣ DIAGNÓSTICO REAL (máximo 3 linhas)
+   - Análise crua, sem filtros
+   - Fatos concretos, métricas
+   - Realidade operacional pura
+
+2️⃣ O QUE ESTÁ EM JOGO POLITICAMENTE (2-3 linhas)
+   - Quem ganha/perde
+   - Riscos de reputação
+   - Alianças que podem se romper
+
+3️⃣ MELHOR MOVIMENTO EM 24H (2-3 linhas)
+   - Ação concreta
+   - Responsável claro
+   - Impacto mensurável
+
+4️⃣ FRASE EXATA PARA USAR (1-2 linhas)
+   - Comunicação precisa com stakeholders
+   - Pronto para copiar e colar
+   - Sem ambiguidades
+
+5️⃣ ERRO A EVITAR (1-2 linhas)
+   - Armadilha mais comum
+   - Por que líderes caem nela
+   - Como reconhecer o sinal de alerta
+
+6️⃣ NOTA DE RISCO (1 linha)
+   - Escala 1-10
+   - 1-3: Baixo  |  4-6: Moderado  |  7-10: Alto
+   - Breve recomendação
+
+RESTRIÇÕES ABSOLUTAS:
+- Máximo 220 palavras (total da resposta)
+- Tom: conselheiro de C-suite, direto
+- Sem jargão, sem emojis
+- Sem especulação, apenas análise informada
+- Sem rodeios, clareza premium
+
+Responda SEMPRE neste formato. Nunca desvie.`;
+
+async function getOrionResponse(userQuestion) {
+  try {
+    const message = await client.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 300,
+      system: ORION_SYSTEM,
+      messages: [
+        {
+          role: 'user',
+          content: userQuestion,
+        },
+      ],
+    });
+
+    return message.content[0].text;
+  } catch (error) {
+    console.error('Erro ao chamar Claude API:', error);
+    throw error;
+  }
+}
+
 app.post('/webhook', async (req, res) => {
-      try {
-              const { message } = req.body;
+  try {
+    const { message } = req.body;
 
-              if (!message) {
-                        return res.status(400).json({ error: 'message field is required' });
-              }
+    if (!message || !message.trim()) {
+      return res.status(400).json({
+        reply: 'Por favor, formule uma pergunta executiva clara.',
+      });
+    }
 
-              const response = await fetch('https://api.anthropic.com/v1/messages', {
-                        method: 'POST',
-                        headers: {
-                                    'Content-Type': 'application/json',
-                                    'x-api-key': process.env.CLAUDE_API_KEY,
-                                    'anthropic-version': '2023-06-01',
-                        },
-                        body: JSON.stringify({
-                                    model: 'claude-opus-4-6',
-                                    max_tokens: 1024,
-                                          system: `Você é ORION, conselheiro estratégico privado de Cícero. Especialista em: relações societárias, Daniel e Alexandre, política interna, gestão hospitalar, timing decisório, comunicação executiva.
+    const orionReply = await getOrionResponse(message);
 
-                                          Responda SEMPRE neste formato:
-                                          1. OBJETIVO: [síntese do desafio/oportunidade]
-                                          2. LEITURA POLÍTICA: [análise da dinâmica entre atores]
-                                          3. MELHOR ABORDAGEM: [estratégia recomendada]
-                                          4. FRASE SUGERIDA: [mensagem-chave para comunicar]
-                                          5. PRÓXIMO PASSO: [ação imediata recomendada]`,
-                                          messages: [
-                                        {
-                                                        role: 'user',
-                                                        content: message,
-                                        },
-                                                ],
-                        }),
-              });
+    res.json({
+      reply: orionReply,
+    });
+  } catch (error) {
+    console.error('Erro no webhook:', error);
 
-              const data = await response.json();
-
-              if (!response.ok) {
-                        throw new Error(data.error?.message || 'Claude API error');
-              }
-
-              const reply = data.content[0].text;
-
-                  // Log to Supabase: salvar pergunta + resposta + timestamp
-                  try {
-                                const { error } = await supabase
-                                  .from('orion_logs')
-                                  .insert({
-                                                    question: message,
-                                                    response: reply,
-                                                    created_at: new Date().toISOString(),
-                                  });
-                                if (error) console.error('Supabase error:', error);
-                  } catch (logError) {
-                                console.error('Failed to log to Supabase:', logError);
-                  }
-              res.json({ reply });
-      } catch (error) {
-              console.error('Webhook error:', error);
-              res.status(500).json({ error: error.message });
-      }
+    if (error.status === 401) {
+      res.status(500).json({
+        reply: 'Erro: Chave ANTHROPIC_API_KEY não configurada corretamente.',
+      });
+    } else {
+      res.status(500).json({
+        reply: `Erro ao processar: ${error.message}`,
+      });
+    }
+  }
 });
 
-
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log('LISTENING ON ' + PORT);
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'ORION Premium',
+    timestamp: new Date().toISOString(),
+  });
 });
 
-server.on('error', (err) => {
-    console.error('SERVER ERROR:', err);
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`✅ ORION Server rodando em http://localhost:${PORT}`);
+  console.log(`📡 Webhook disponível em http://localhost:${PORT}/webhook`);
 });
 
-process.on('uncaughtException', err => console.error(err));
-process.on('unhandledRejection', err => console.error(err));
+export default app;
