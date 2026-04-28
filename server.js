@@ -1,4 +1,4 @@
-/**
+hl/**
  * ORION Backend - Node.js + Express
  * Sistema Prompt Premium para Conselheiro Executivo
  */
@@ -63,7 +63,7 @@ Responda SEMPRE neste formato. Nunca desvie.`;
 async function getOrionResponse(userQuestion) {
   try {
     const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-3-5-sonnet-latest',
       max_tokens: 300,
       system: ORION_SYSTEM,
       messages: [
